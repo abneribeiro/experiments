@@ -95,3 +95,7 @@ tools:
 brew install vegeta
 go install golang.org/x/perf/cmd/benchstat@latest
 ```
+
+## **license**
+
+-   [mit](LICENSE)
