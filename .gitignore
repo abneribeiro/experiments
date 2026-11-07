@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+
+# Editors
+.vscode/
+.cursor/
+.idea/
+
+# Go: build output, test binaries, coverage and profiles
+/bin/
+*.test
+*.out
+*.prof
+
+# Load testing: raw vegeta output (the text report, load.txt, is tracked)
+*.bin
+
+# Bun: installed dependencies (bun.lock is tracked)
+node_modules/
+
+# Secrets
+.env
+.env.*
+
+# Measurement reports (before.txt, after.txt, load.txt) are NOT ignored:
+# every published number points to one of them.
