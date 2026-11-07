@@ -4,6 +4,8 @@ DATABASE_URL ?= postgres://postgres:postgres@localhost:5432/postgres?sslmode=dis
 export DATABASE_URL
 
 NAME ?= before
+KIND ?= go
+MODULE_PREFIX := github.com/abneribeiro/experiments
 BENCHSTAT ?= $(shell command -v benchstat || echo "$$(go env GOPATH)/bin/benchstat")
 
 # Fails with a usage line when DIR is missing or is not a directory.
@@ -16,11 +18,40 @@ define require_dir
 	fi
 endef
 
+# Tests one experiment folder, Go or Bun. $(1) is the folder.
+define test_one
+	if [ -f "$(1)/go.mod" ]; then \
+		(cd "$(1)" && go test -race ./...); \
+	elif [ -f "$(1)/package.json" ]; then \
+		(cd "$(1)" && { [ -d node_modules ] || bun install --frozen-lockfile; } && bun test && bunx tsc --noEmit); \
+	else \
+		echo "no go.mod or package.json: nothing to test"; \
+	fi
+endef
+
 .DEFAULT_GOAL := help
-.PHONY: help db-up db-down psql test run bench compare
+.PHONY: help new db-up db-down psql test run bench compare
 
 help: ## Show this help
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-10s %s\n", $$1, $$2}'
+
+new: ## Start an experiment: make new DIR=01-webhook-hmac [KIND=go|ts|sql]
+	@if ! [[ "$(DIR)" =~ ^[0-9]{2}-[a-z0-9]+(-[a-z0-9]+)*$$ ]]; then \
+		echo "usage: make new DIR=NN-topic-subject [KIND=go|ts|sql]"; exit 1; \
+	fi
+	@if [ -e "$(DIR)" ]; then echo "error: '$(DIR)' already exists"; exit 1; fi
+	@case "$(KIND)" in \
+		go) cp -R _template "$(DIR)" \
+			&& (cd "$(DIR)" && go mod edit -module "$(MODULE_PREFIX)/$(DIR)");; \
+		ts) mkdir "$(DIR)" \
+			&& cp _template/README.md _template/NOTES.md "$(DIR)/" \
+			&& for f in package.json bun.lock tsconfig.json index.ts index.test.ts bench.ts; do cp "_template-ts/$$f" "$(DIR)/"; done \
+			&& sed -i '' 's/"name": "experiment"/"name": "$(DIR)"/' "$(DIR)/package.json" \
+			&& (cd "$(DIR)" && bun install --frozen-lockfile);; \
+		sql) mkdir "$(DIR)" && cp _template/README.md _template/NOTES.md "$(DIR)/";; \
+		*) echo "error: KIND must be go, ts or sql"; exit 1;; \
+	esac
+	@echo "created $(DIR) ($(KIND)): start with NOTES.md, then the question in README.md"
 
 db-up: ## Start PostgreSQL and wait until it is healthy
 	docker compose up -d --wait
@@ -31,30 +62,40 @@ db-down: ## Stop PostgreSQL and delete its data
 psql: ## Open psql in the database container
 	docker compose exec db psql -U postgres
 
-test: ## Run Go tests with the race detector: one DIR, or every Go experiment
+test: ## Run tests (Go: -race; Bun: bun test + tsc): one DIR, or every experiment
 	@if [ -n "$(DIR)" ]; then \
-		[ -f "$(DIR)/go.mod" ] || { echo "usage: make test [DIR=<folder with go.mod>]"; exit 1; }; \
-		echo "==> $(DIR)"; cd "$(DIR)" && go test -race ./...; \
+		[ -d "$(DIR)" ] || { echo "usage: make test [DIR=<folder>]"; exit 1; }; \
+		echo "==> $(DIR)"; $(call test_one,$(DIR)); \
 	else \
-		failed=0; \
-		for mod in */go.mod; do \
-			[ -e "$$mod" ] || { echo "no Go experiments yet"; exit 0; }; \
-			dir=$$(dirname "$$mod"); \
+		failed=0; found=0; \
+		for dir in */; do \
+			dir=$${dir%/}; \
 			case "$$dir" in _*) continue;; esac; \
-			echo "==> $$dir"; \
-			(cd "$$dir" && go test -race ./...) || failed=1; \
+			[ -f "$$dir/go.mod" ] || [ -f "$$dir/package.json" ] || continue; \
+			found=1; echo "==> $$dir"; \
+			( $(call test_one,$$dir) ) || failed=1; \
 		done; \
+		[ $$found = 1 ] || echo "no experiments yet"; \
 		exit $$failed; \
 	fi
 
-run: ## Run a Go experiment: make run DIR=<folder>
+run: ## Run an experiment: make run DIR=<folder>
 	$(call require_dir,make run DIR=<folder>)
-	cd "$(DIR)" && go run .
+	@if [ -f "$(DIR)/package.json" ]; then cd "$(DIR)" && bun run index.ts; else cd "$(DIR)" && go run .; fi
 
-bench: ## Benchmark a Go experiment into DIR/NAME.txt: make bench DIR=<folder> [NAME=after]
+bench: ## Benchmark into DIR/NAME.txt: make bench DIR=<folder> [NAME=after]
 	$(call require_dir,make bench DIR=<folder> [NAME=after])
-	set -o pipefail; cd "$(DIR)" && go test -run='^$$' -bench=. -benchmem -count=10 ./... | tee "$(NAME).txt"
+	@set -o pipefail; \
+	if [ -f "$(DIR)/package.json" ]; then \
+		cd "$(DIR)" && NO_COLOR=1 bun run bench.ts | tee "$(NAME).txt"; \
+	else \
+		cd "$(DIR)" && go test -run='^$$' -bench=. -benchmem -count=10 ./... | tee "$(NAME).txt"; \
+	fi
 
 compare: ## Compare DIR/before.txt with DIR/after.txt: make compare DIR=<folder>
 	$(call require_dir,make compare DIR=<folder>)
-	$(BENCHSTAT) "$(DIR)/before.txt" "$(DIR)/after.txt"
+	@if [ -f "$(DIR)/package.json" ]; then \
+		diff -y -W 160 "$(DIR)/before.txt" "$(DIR)/after.txt" || true; \
+	else \
+		$(BENCHSTAT) "$(DIR)/before.txt" "$(DIR)/after.txt"; \
+	fi

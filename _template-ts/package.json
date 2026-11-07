@@ -1,0 +1,15 @@
+{
+  "name": "experiment",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "bench": "bun run bench.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.4",
+    "mitata": "^1.0.34",
+    "typescript": "^7.0.2"
+  }
+}
