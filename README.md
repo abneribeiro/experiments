@@ -17,17 +17,18 @@ one flat folder per experiment, at the root:
 
 ```
 experiments/
-  01-webhook-hmac/    code, tests, README.md, before.txt, after.txt
+  01-webhook-hmac/    code, tests, README.md, NOTES.md, before.txt, after.txt
   02-webhook-replay/
-  _template/          README.md, go.mod, main.go, main_test.go
+  _template/          README.md, NOTES.md, go.mod, main.go, main_test.go
   README.md
   Makefile
   compose.yaml
   .gitignore
 ```
 
--   **name:** `NN-topic-subject`, lowercase, with hyphens. the number is given when the folder is created, in the order the experiments are done, and never changes. topic prefixes: `webhook-`, `http-`, `oauth-`, `pg-`, `stock-`, `prod-`.
--   **self-contained:** each folder has its own code, tests, a `README.md` copied from `_template/README.md`, and its measurement results (`before.txt`, `after.txt`, `load.txt`), all at the same level. a go experiment is its own module (`go.mod`), a bun experiment has its own `package.json`, and a sql experiment has only `.sql` files. there is no root `go.mod`.
+-   **name:** `NN-topic-subject`, lowercase, with hyphens. the number is given when the folder is created, in the order the experiments are done, and never changes. topic prefixes: `webhook-`, `http-`, `oauth-`, `pg-`, `stock-`, `prod-`, `ts-`.
+-   **self-contained:** each folder has its own code, tests, a `README.md` and a `NOTES.md` copied from `_template/`, and its measurement results (`before.txt`, `after.txt`, `load.txt`), all at the same level. a go experiment is its own module (`go.mod`), a bun experiment has its own `package.json`, and a sql experiment has only `.sql` files. there is no root `go.mod`.
+-   **notes vs readme:** `NOTES.md` is the loose log written while studying (sources, sessions, questions, dead ends); `README.md` is the clean result written at the end.
 -   **flat:** no topic folders, no `results/` folder. the only non-experiment folder is `_template/`: the `_` prefix keeps it first in listings, and go and `make test` skip it.
 -   **minimal:** only what the question needs. standard library first; dependencies only when the experiment is about them.
 -   an experiment that grows into a tool moves to its own repository.
@@ -39,8 +40,8 @@ start a new experiment:
 cp -R _template NN-topic-subject && cd NN-topic-subject
 go mod edit -module github.com/abneribeiro/experiments/NN-topic-subject
 
-# Bun or SQL: copy only the README
-mkdir NN-topic-subject && cp _template/README.md NN-topic-subject/ && cd NN-topic-subject
+# Bun or SQL: copy only the README and the notes
+mkdir NN-topic-subject && cp _template/README.md _template/NOTES.md NN-topic-subject/ && cd NN-topic-subject
 bun init -y                                                       # Bun only
 ```
 
