@@ -32,6 +32,7 @@ experiments/
 -   **notes vs readme:** `NOTES.md` is the loose log written while studying (sources, sessions, questions, dead ends); `README.md` is the clean result written at the end.
 -   **flat:** no topic folders, no `results/` folder. the only non-experiment folders are `_template/` (go, plus the readme and notes every experiment gets) and `_template-ts/` (bun): the `_` prefix keeps them first in listings, and go and `make test` skip them.
 -   **minimal:** only what the question needs. standard library first; dependencies only when the experiment is about them.
+-   **reuse:** copy, never import. an experiment never imports another experiment, and there is no shared package. start from the previous experiment's code when it helps; a block moves into `_template/` only after it appears unchanged in three experiments. queries, handlers and measurement code never go into the template.
 -   an experiment that grows into a tool moves to its own repository.
 
 start a new experiment:
